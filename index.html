@@ -1,418 +1,377 @@
 <!doctype html>
 <html lang="ms">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Kambing Lintas Jalan — Saudagar</title>
-  <style>
-    :root{
-      --bg:#0f172a; --text:#e5e7eb; --muted:#94a3b8;
-      --road:#0f1420; --lane:#0b1220; --edge:#0a1a12;
-      --grass:#0b3a23; --accent:#22c55e; --danger:#ef4444;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0; background:
-        radial-gradient(1400px 700px at 10% -10%,#1e293b,transparent),
-        radial-gradient(900px 600px at 120% 10%,#0b1220,transparent), var(--bg);
-      color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-      overflow:hidden;
-    }
-    header{
-      position:fixed; inset:0 0 auto 0; height:56px; display:flex; align-items:center; gap:10px;
-      padding:10px 14px; background:linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,0));
-      z-index:10; pointer-events:none;
-    }
-    .pill{pointer-events:auto; padding:6px 10px; border-radius:999px; font-size:12px;
-      border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06)}
-    .hearts{display:flex; gap:6px; align-items:center}
-    .btn{
-      pointer-events:auto; margin-left:auto; padding:8px 12px; border-radius:10px; font-weight:700;
-      background:linear-gradient(180deg,#16a34a,#15803d); color:#fff; border:1px solid rgba(255,255,255,.18);
-      box-shadow:0 6px 16px rgba(20,184,166,.25); cursor:pointer;
-    }
-    .btn:disabled{opacity:.6; cursor:not-allowed}
-    main{display:grid; place-items:center; height:100dvh; padding:12px}
-    canvas{max-width:100%; height:auto; border-radius:18px; box-shadow:0 14px 36px rgba(0,0,0,.35)}
-    .overlay{
-      position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.5); z-index:20;
-    }
-    .card{
-      width:min(560px, calc(100vw - 32px)); border-radius:16px; padding:16px; backdrop-filter: blur(8px);
-      border:1px solid rgba(255,255,255,.12);
-      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
-      text-align:center;
-    }
-    h1{margin:6px 0 2px; font-size:20px}
-    p{margin:8px 0; color:var(--muted)}
-    .row{display:flex; gap:8px; justify-content:center; margin-top:10px}
-    .cta{padding:12px 16px; border-radius:12px; font-weight:800; border:1px solid rgba(255,255,255,.18); cursor:pointer}
-    .primary{background:linear-gradient(180deg,#22c55e,#16a34a); color:#fff}
-    .ghost{background:rgba(255,255,255,.08); color:#e5e7eb}
-    .toast{
-      position:fixed; left:50%; transform:translateX(-50%); bottom:14px; z-index:30;
-      padding:8px 12px; background:rgba(0,0,0,.6); border:1px solid rgba(255,255,255,.14);
-      color:#d1fae5; border-radius:10px; font-size:13px; display:none;
-    }
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Saudagar Road Rush</title>
+<style>
+:root{
+  --bg:#0a1220;--text:#e5e7eb;--muted:#94a3b8;
+  --road:#0f1420;--edge:#0a1a12;--hud:#111827;--accent:#22c55e;--danger:#ef4444;
+}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:
+  radial-gradient(1200px 600px at 20% -10%,#1e293b,transparent),
+  radial-gradient(900px 500px at 120% 10%,#0b1220,transparent),var(--bg);
+  color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;overflow:hidden}
+main{display:grid;place-items:center;height:100dvh;padding:10px}
+canvas{max-width:100%;height:auto;border-radius:18px;box-shadow:0 14px 36px rgba(0,0,0,.35)}
+.hud{position:fixed;inset:0 0 auto 0;height:56px;display:flex;align-items:center;gap:10px;
+  padding:8px 12px;background:linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,0));z-index:10}
+.badge{padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);font-size:12px}
+.hud .meter{height:10px;width:140px;border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,.14);background:#0b1220}
+.meter>span{display:block;height:100%;background:linear-gradient(90deg,#22c55e,#84cc16)}
+.hud .hearts{display:flex;gap:6px;margin-left:6px}
+.score{margin-left:auto;font-weight:800}
+.btns{position:fixed;inset:auto 0 14px 0;display:flex;justify-content:center;gap:12px;z-index:9}
+.ctrl{padding:14px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.15);
+  background:linear-gradient(180deg,#1f2937,#0f172a);color:#fff;font-weight:900;min-width:90px}
+.overlay{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.55);z-index:20}
+.card{width:min(560px,calc(100vw - 32px));border-radius:16px;padding:16px;backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.12);background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.04));text-align:center}
+.card h1{margin:6px 0 4px;font-size:22px}
+.card p{margin:8px 0;color:var(--muted)}
+.row{display:flex;gap:8px;justify-content:center;margin-top:10px}
+.cta{padding:12px 16px;border-radius:12px;font-weight:800;border:1px solid rgba(255,255,255,.18);cursor:pointer}
+.primary{background:linear-gradient(180deg,#22c55e,#16a34a);color:#fff}
+.ghost{background:rgba(255,255,255,.08);color:#e5e7eb}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:30;
+  padding:8px 12px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.14);color:#d1fae5;border-radius:10px;font-size:13px;display:none}
+@media (min-width:720px){.btns{gap:18px}.ctrl{min-width:120px}}
+</style>
 </head>
 <body>
-  <header>
-    <span class="pill">🐐</span>
-    <div class="hearts" id="hearts"></div>
-    <button class="btn" id="helpBtn">Cara Main</button>
-  </header>
+<div class="hud">
+  <span class="badge">🚗 Road Rush</span>
+  <div class="meter" title="Fuel"><span id="fuelBar" style="width:100%"></span></div>
+  <div class="hearts" id="hearts"></div>
+  <div class="score" id="score">0</div>
+</div>
 
-  <main>
-    <canvas id="game" width="480" height="860" aria-label="Permainan Kambing Lintas Jalan"></canvas>
-  </main>
+<main>
+  <canvas id="game" width="480" height="860" aria-label="Saudagar Road Rush"></canvas>
+</main>
 
-  <div class="overlay" id="overlay">
-    <div class="card">
-      <h1 id="title">Saudagar</h1>
-      <p id="subtitle">Tap / klik / Space untuk naik 1 lorong. Elak kereta. Ada 3 nyawa. Sampai bangunan “Saudagar” di atas untuk menang.</p>
-      <div class="row">
-        <button class="cta ghost" id="howTo">🎯 Cara Main</button>
-        <button class="cta primary" id="startBtn">Mula</button>
-      </div>
+<div class="btns">
+  <button class="ctrl" id="leftBtn">◀</button>
+  <button class="ctrl" id="brakeBtn">⛔ Brek</button>
+  <button class="ctrl" id="rightBtn">▶</button>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="card">
+    <h1>Saudagar Road Rush</h1>
+    <p>Elak trafik, kumpul kanister minyak & kekalkan kombo near-miss untuk skor tinggi.<br/>←/→ atau butang: tukar lorong · Tahan **Brek** untuk perlahan · Auto-gerak ke depan.</p>
+    <p><b>Tip:</b> Potong rapat kereta lain untuk naikkan multiplier. Hati ❤️ dan minyak ⛽ muncul sekali-sekala.</p>
+    <div class="row">
+      <button class="cta ghost" id="howBtn">Cara Main</button>
+      <button class="cta primary" id="startBtn">Mula</button>
     </div>
   </div>
+</div>
 
-  <div class="toast" id="toast"></div>
+<div class="toast" id="toast"></div>
 
-  <script>
-  ;(()=>{
-    // ===================== CONFIG (AMEND) =====================
-    const LANES = 8;            // 8 lane (dari request)
-    const LIVES_MAX = 3;        // nyawa
-    const BASE_SPEED = 55;      // kereta lebih perlahan → "take longer time"
-    const SPEED_VARIANCE = 40;  // variasi kelajuan
-    const SPAWN_MIN = 1.3;      // jarang spawn
-    const SPAWN_MAX = 2.6;
-    const GOAT_WIDTH_FACTOR = 0.55;
-    const GOAT_HEIGHT_FACTOR = 0.72;
-    const INVULN_TIME = 1100;   // ms selepas dilanggar
-    // =========================================================
+<script>
+;(()=>{
+  // ================= CONFIG =================
+  const LANES = 3;
+  const LIVES_MAX = 3;
+  const WORLD_BASE = 180;        // kelajuan latar/arus asas (px/s)
+  const PLAYER_MAX = 360;        // kelajuan maksimum pemain
+  const ACCEL = 280;             // pecut (px/s^2)
+  const BRAKE = 420;             // brek (px/s^2)
+  const LANE_CHANGE_SPEED = 8.0; // kelajuan interpolasi tukar lorong
+  const FUEL_MAX = 100;
+  const FUEL_DRAIN = 4.2;        // per saat
+  const NEAR_MISS_DIST = 34;     // < jarak ini = near-miss
+  const NEAR_MISS_TIME = 900;    // ms multiplier decay
+  const DAYNIGHT_SPEED = 0.03;   // kitaran siang malam
+  // ==========================================
 
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
-    const overlay = document.getElementById('overlay');
-    const startBtn = document.getElementById('startBtn');
-    const howToBtn = document.getElementById('howTo');
-    const helpBtn = document.getElementById('helpBtn');
-    const heartsEl = document.getElementById('hearts');
-    const toast = document.getElementById('toast');
+  const cvs = document.getElementById('game');
+  const ctx = cvs.getContext('2d');
+  const startBtn = document.getElementById('startBtn');
+  const howBtn = document.getElementById('howBtn');
+  const overlay = document.getElementById('overlay');
+  const toast = document.getElementById('toast');
+  const leftBtn = document.getElementById('leftBtn');
+  const rightBtn = document.getElementById('rightBtn');
+  const brakeBtn = document.getElementById('brakeBtn');
+  const heartsEl = document.getElementById('hearts');
+  const fuelBar = document.getElementById('fuelBar');
+  const scoreEl = document.getElementById('score');
 
-    function fitCanvas(){
-      const pad = 24;
-      const w = Math.min(520, window.innerWidth - pad*2);
-      const h = Math.min(980, window.innerHeight - pad*2);
-      const targetH = Math.max(h, w * 1.65);
-      canvas.width = Math.floor(w);
-      canvas.height = Math.floor(targetH);
+  // Responsive
+  function fitCanvas(){
+    const pad=10, w=Math.min(520, innerWidth-pad*2), h=Math.min(980, innerHeight-pad*2);
+    const targetH=Math.max(h, w*1.65); cvs.width=w; cvs.height=targetH;
+  }
+  fitCanvas(); addEventListener('resize', fitCanvas);
+
+  // World state
+  const state = {
+    running:false, gameOver:false,
+    lives:LIVES_MAX, fuel:FUEL_MAX,
+    score:0, best: Number(localStorage.getItem('rr_best')||0),
+    t:0, // time
+    player:{
+      lane:1, target:1, x:0, y:0, w:0, h:0, speed:200
+    },
+    traffic:[], pickups:[], // vehicles & items
+    spawn: {timer:0, gap:1.2}, // traffic interval
+    night: 0, // 0..1
+    multiplier:1, nearMissTimer:0
+  };
+
+  function laneX(idx){
+    const roadW = cvs.width*0.82, roadL = LANES;
+    const left = (cvs.width-roadW)/2;
+    return left + (idx+0.5)*(roadW/roadL);
+  }
+  function laneWidth(){ return (cvs.width*0.82)/LANES; }
+
+  function reset(){
+    state.running=false; state.gameOver=false;
+    state.lives=LIVES_MAX; state.fuel=FUEL_MAX; state.score=0;
+    state.player.lane=1; state.player.target=1;
+    const h = laneWidth()*1.2;
+    state.player.w = Math.floor(laneWidth()*0.55);
+    state.player.h = Math.floor(h*0.8);
+    state.player.x = laneX(state.player.lane)-state.player.w/2;
+    state.player.y = cvs.height - (laneWidth()*0.9);
+    state.player.speed = 200;
+    state.traffic.length=0; state.pickups.length=0;
+    state.spawn.timer=0; state.spawn.gap=1.2;
+    state.multiplier=1; state.nearMissTimer=0; state.night=0;
+    updateHearts(); updateFuel(); scoreEl.textContent = "0";
+    showOverlay(true);
+  }
+
+  function showOverlay(show){ overlay.style.display = show ? "grid" : "none"; }
+  function toastMsg(msg,ms=1200){ toast.textContent=msg; toast.style.display="block"; setTimeout(()=>toast.style.display="none",ms); }
+  function updateHearts(){
+    heartsEl.innerHTML=""; for(let i=0;i<LIVES_MAX;i++){ const s=document.createElement('span'); s.textContent=i<state.lives?"❤️":"🖤"; heartsEl.appendChild(s);}
+  }
+  function updateFuel(){ fuelBar.style.width = Math.max(0,Math.min(1,state.fuel/FUEL_MAX))*100 + "%"; }
+
+  // Controls
+  function changeLane(dir){
+    if(!state.running) return;
+    const t = state.player.target + dir;
+    state.player.target = Math.max(0, Math.min(LANES-1, t));
+  }
+  let braking = false;
+  leftBtn.onclick = ()=>changeLane(-1);
+  rightBtn.onclick = ()=>changeLane(1);
+  brakeBtn.onpointerdown = ()=> braking=true;
+  brakeBtn.onpointerup = brakeBtn.onpointercancel = ()=> braking=false;
+
+  addEventListener('keydown', e=>{
+    if(e.code==="ArrowLeft") changeLane(-1);
+    if(e.code==="ArrowRight") changeLane(1);
+    if(e.code==="Space"||e.code==="ArrowDown") braking=true;
+    if(e.code==="Enter" && !state.running) start();
+  });
+  addEventListener('keyup', e=>{
+    if(e.code==="Space"||e.code==="ArrowDown") braking=false;
+  });
+
+  startBtn.onclick = start;
+  howBtn.onclick = ()=> toastMsg("←/→ tukar lorong · Tahan brek untuk perlahan. Near-miss naikkan multiplier!");
+
+  function start(){ showOverlay(false); state.running=true; state.t=performance.now(); requestAnimationFrame(loop); toastMsg("Hati-hati di jalan! Near-miss untuk +multiplier"); }
+
+  // Entities
+  function spawnVehicle(){
+    const lane = Math.floor(Math.random()*LANES);
+    // check last vehicle in lane to avoid spawn overlap
+    const last = [...state.traffic].reverse().find(v=>v.lane===lane);
+    const minGap = laneWidth()*1.6;
+    if(last && (last.y < -minGap)) return; // tunggu
+    const lw = laneWidth(), isTruck = Math.random()<0.25;
+    const w = Math.floor(lw * (isTruck?0.65:0.5));
+    const h = Math.floor(lw * (isTruck?1.6:1.2));
+    const speed = WORLD_BASE + 60 + Math.random()*140; // bergerak turun
+    const color = ["#60a5fa","#22c55e","#f59e0b","#a78bfa","#ef4444","#14b8a6","#f97316","#38bdf8"][Math.floor(Math.random()*8)];
+    state.traffic.push({lane,x: laneX(lane)-w/2,y:-h-20,w,h,speed,color,truck:isTruck});
+  }
+  function spawnPickup(){
+    const lane = Math.floor(Math.random()*LANES);
+    const kind = Math.random()<0.7? "fuel" : "heart";
+    const size = Math.floor(laneWidth()*0.38);
+    state.pickups.push({lane,x: laneX(lane)-size/2,y:-size-20,w:size,h:size,kind});
+  }
+
+  // Drawing helpers
+  function rrect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fill(); }
+  function drawCar(v){
+    // shadow
+    ctx.fillStyle="rgba(0,0,0,.28)"; rrect(v.x+2,v.y+4,v.w,v.h*0.9,10);
+    // body
+    ctx.fillStyle=v.color; rrect(v.x,v.y,v.w,v.h,10);
+    // highlight
+    ctx.fillStyle="rgba(255,255,255,.15)"; rrect(v.x+4,v.y+4,v.w-8,v.h*0.35,8);
+    // windows
+    ctx.fillStyle="rgba(255,255,255,.75)";
+    rrect(v.x+v.w*0.12, v.y+v.h*0.2, v.w*0.36, v.h*0.28, 6);
+    rrect(v.x+v.w*0.54, v.y+v.h*0.2, v.w*0.28, v.h*0.28, 6);
+    // wheels
+    ctx.fillStyle="#0e0e0e"; const r=Math.max(6,Math.floor(v.h*0.18));
+    ctx.beginPath(); ctx.arc(v.x+v.w*0.2, v.y+v.h-4, r,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(v.x+v.w*0.8, v.y+v.h-4, r,0,Math.PI*2); ctx.fill();
+    // lights
+    const night=state.night;
+    if(night>0.3){
+      ctx.fillStyle="rgba(253,230,138,"+(0.4+night*0.6)+")";
+      ctx.fillRect(v.x+2, v.y+v.h*0.25, 4, 8);
+      ctx.fillRect(v.x+2, v.y+v.h*0.65, 4, 8);
     }
-    fitCanvas();
-    addEventListener('resize', fitCanvas);
+  }
+  function drawPlayer(){
+    const p=state.player;
+    // body
+    ctx.fillStyle="#d1d5db"; rrect(p.x, p.y+p.h*0.18, p.w, p.h*0.62, 10);
+    // windscreen
+    ctx.fillStyle="#94a3b8"; rrect(p.x+p.w*0.15, p.y+p.h*0.22, p.w*0.7, p.h*0.24, 8);
+    // wheels
+    ctx.fillStyle="#0f0f0f"; const rw=Math.max(6,Math.floor(p.h*0.18));
+    ctx.beginPath(); ctx.arc(p.x+p.w*0.2, p.y+p.h-4, rw,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x+p.w*0.8, p.y+p.h-4, rw,0,Math.PI*2); ctx.fill();
+    // headlights (at night)
+    if(state.night>0.35){
+      const g=ctx.createRadialGradient(p.x+p.w*0.5,p.y,2,p.x+p.w*0.5,p.y-40,120);
+      g.addColorStop(0,"rgba(253,230,138,.35)"); g.addColorStop(1,"rgba(253,230,138,0)");
+      ctx.fillStyle=g; ctx.fillRect(p.x-80,p.y-140,p.w+160,140);
+    }
+  }
+  function drawPickup(it){
+    if(it.kind==="fuel"){ ctx.fillStyle="#16a34a"; rrect(it.x,it.y,it.w,it.h,8); ctx.fillStyle="#0b1220"; ctx.fillRect(it.x+it.w*0.4,it.y+it.h*0.2,it.w*0.2,it.h*0.6); }
+    else{ ctx.fillStyle="#ef4444"; rrect(it.x,it.y,it.w,it.h,10); ctx.fillStyle="#fff"; ctx.fillText("❤", it.x+it.w*0.28, it.y+it.h*0.72); }
+  }
 
-    const state = {
-      running:false, gameOver:false, win:false,
-      lives:LIVES_MAX, goatLane:-1, invulnUntil:0,
-      cars:Array.from({length:LANES}, ()=>[]),
-      spawnTimers:new Array(LANES).fill(0),
-      nextSpawnIn:[], lastTime:0,
-    };
+  // AABB
+  function hit(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
 
-    function laneHeight(){ return Math.floor(canvas.height / (LANES + 2)); }
-    const colors = ["#60a5fa","#22c55e","#f59e0b","#a78bfa","#ef4444","#14b8a6","#f97316","#38bdf8"];
+  // Loop
+  function loop(now){
+    if(!state.running) return;
+    const dt = Math.min(0.05, (now - state.t)/1000); state.t = now;
 
-    function yForRow(row){
-      const h = laneHeight();
-      const marginB = h;
-      return canvas.height - marginB - (row + 0.5) * h;
+    // Update world speed
+    const target = braking ? WORLD_BASE*0.6 : PLAYER_MAX;
+    if(state.player.speed < target) state.player.speed = Math.min(target, state.player.speed + ACCEL*dt);
+    else state.player.speed = Math.max(target, state.player.speed - BRAKE*dt*0.6);
+
+    // Fuel & score
+    state.fuel -= FUEL_DRAIN*dt*(0.7 + state.player.speed/PLAYER_MAX*0.6);
+    if(state.fuel<=0){ crash(true); return; }
+    updateFuel();
+    state.score += (state.player.speed*dt) * (0.02 * state.multiplier);
+    scoreEl.textContent = Math.floor(state.score).toLocaleString();
+
+    // Increase difficulty over time
+    state.spawn.gap = Math.max(0.6, 1.2 - (state.score/8000));
+    state.night = (state.night + DAYNIGHT_SPEED*dt) % 1; // 0..1 cycle
+
+    // Spawn traffic & pickups
+    state.spawn.timer += dt;
+    if(state.spawn.timer >= state.spawn.gap){ state.spawn.timer=0; spawnVehicle(); if(Math.random()<0.3) spawnPickup(); }
+
+    // Move traffic/pickups
+    for(let i=state.traffic.length-1;i>=0;i--){
+      const v = state.traffic[i]; v.y += (state.player.speed + v.speed*0.15) * dt;
+      if(v.y > cvs.height+60) state.traffic.splice(i,1);
+    }
+    for(let i=state.pickups.length-1;i>=0;i--){
+      const it=state.pickups[i]; it.y += state.player.speed*dt; if(it.y>cvs.height+40) state.pickups.splice(i,1);
     }
 
-    function resetSpawns(){
-      state.nextSpawnIn = Array.from({length:LANES}, ()=>rand(SPAWN_MIN, SPAWN_MAX));
-      state.spawnTimers = new Array(LANES).fill(0);
-      state.cars = Array.from({length:LANES}, ()=>[]);
-    }
+    // Player lane interpolation
+    const targetX = laneX(state.player.target)-state.player.w/2;
+    state.player.x += (targetX - state.player.x) * Math.min(1, LANE_CHANGE_SPEED*dt);
 
-    function resetGame(){
-      state.running=false; state.gameOver=false; state.win=false;
-      state.lives=LIVES_MAX; state.goatLane=-1; state.invulnUntil=0;
-      resetSpawns(); updateHearts();
-      showOverlay("Saudagar","Tap / klik / Space untuk naik satu lorong. Elak kereta. 3 nyawa. Sampai ke bangunan 'Saudagar' di atas.");
+    // Collisions
+    const p=state.player;
+    for(let i=state.traffic.length-1;i>=0;i--){
+      const v=state.traffic[i];
+      if(hit(p,v)){ crash(false); return; }
+      // near-miss (front bumper distance)
+      const d = v.y + v.h - p.y;
+      if(v.lane===state.player.target && d>0 && d<NEAR_MISS_DIST){
+        state.multiplier = Math.min(5, state.multiplier + 0.02);
+        state.nearMissTimer = now + NEAR_MISS_TIME;
+      }
     }
+    if(now > state.nearMissTimer) state.multiplier = Math.max(1, state.multiplier - 0.01);
 
-    function updateHearts(){
-      heartsEl.innerHTML="";
-      for(let i=0;i<LIVES_MAX;i++){
-        const span=document.createElement('span');
-        span.textContent=i<state.lives?"❤️":"🖤";
-        span.style.filter=i<state.lives?"none":"grayscale(1)";
-        heartsEl.appendChild(span);
+    // Pickup collisions
+    for(let i=state.pickups.length-1;i>=0;i--){
+      const it=state.pickups[i];
+      if(hit(p,it)){
+        if(it.kind==="fuel"){ state.fuel = Math.min(FUEL_MAX, state.fuel + 30); updateFuel(); toastMsg("⛽ +30"); }
+        else if(it.kind==="heart" && state.lives < LIVES_MAX){ state.lives++; updateHearts(); toastMsg("❤️ +1"); }
+        state.pickups.splice(i,1);
       }
     }
 
-    // Util
-    function rand(a,b){ return a + Math.random()*(b-a); }
+    // Draw
+    ctx.clearRect(0,0,cvs.width,cvs.height);
+    drawScene(now);
+    // order: far → near
+    state.traffic.forEach(v=>drawCar(v));
+    state.pickups.forEach(it=>drawPickup(it));
+    drawPlayer();
 
-    // Kereta realistik
-    function spawnCar(lane){
-      const h = laneHeight();
-      const dir = (lane % 2 === 0) ? 1 : -1; // genap: kiri→kanan
-      const speed = BASE_SPEED + (LANES - lane) * 4 + (Math.random()*SPEED_VARIANCE - SPEED_VARIANCE/2);
-      const carH = Math.floor(h * rand(0.62,0.74));
-      const carW = Math.floor(h * rand(1.2, 1.9));
-      const y = yForRow(lane) - carH/2;
-      let x = dir===1 ? -carW - rand(20,80) : canvas.width + rand(20,80);
-      const color = colors[lane % colors.length];
-      state.cars[lane].push({x,y,w:carW,h:carH,speed: speed*dir,color,dir});
+    requestAnimationFrame(loop);
+  }
+
+  function drawScene(t){
+    const roadW=cvs.width*0.82, left=(cvs.width-roadW)/2, roadH=cvs.height;
+    // shoulders
+    ctx.fillStyle="#08351f"; ctx.fillRect(0,0,left,roadH); ctx.fillRect(left+roadW,0,left,roadH);
+    // road
+    ctx.fillStyle="#101522"; rrect(left,0,roadW,roadH,16);
+    // lane dashes scroll
+    const dash = 36, gap=24, offset = (t/6)%(dash+gap);
+    ctx.strokeStyle="#9ca3af55"; ctx.lineWidth=2; ctx.setLineDash([dash,gap]); ctx.lineDashOffset=-offset;
+    for(let i=1;i<LANES;i++){ const x = left + roadW/LANES * i; ctx.beginPath(); ctx.moveTo(x,12); ctx.lineTo(x,roadH-12); ctx.stroke(); }
+    ctx.setLineDash([]);
+
+    // day/night overlay
+    if(state.night>0.15){
+      const alpha = 0.25 + 0.45*Math.sin(state.night*Math.PI); // gentle cycle
+      ctx.fillStyle=`rgba(0,0,0,${alpha.toFixed(3)})`; ctx.fillRect(0,0,cvs.width,cvs.height);
     }
 
-    function updateCars(dt){
-      for(let lane=0; lane<LANES; lane++){
-        state.spawnTimers[lane] += dt;
-        if(state.spawnTimers[lane] >= state.nextSpawnIn[lane]){
-          spawnCar(lane);
-          state.spawnTimers[lane] = 0;
-          state.nextSpawnIn[lane] = rand(SPAWN_MIN, SPAWN_MAX);
-        }
-        const arr = state.cars[lane];
-        for(let i=arr.length-1;i>=0;i--){
-          arr[i].x += arr[i].speed * dt;
-          if(arr[i].x < -arr[i].w-60 || arr[i].x > canvas.width+60) arr.splice(i,1);
-        }
-      }
+    // billboard Saudagar (checkpoint feel)
+    ctx.fillStyle="#6f2c10"; rrect(cvs.width*0.07, 8, cvs.width*0.86, 18, 6);
+    ctx.fillStyle="#f59e0b"; rrect(cvs.width*0.3, 10, cvs.width*0.4, 14, 4);
+    ctx.fillStyle="#1f2937"; ctx.font="bold 12px system-ui"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("Saudagar", cvs.width*0.5, 17);
+  }
+
+  function crash(outOfFuel){
+    if(outOfFuel){ toastMsg("Habis minyak!"); }
+    else { toastMsg("Langgar! -1 nyawa"); }
+    state.lives--; updateHearts();
+    if(state.lives<=0){
+      state.running=false; state.gameOver=true;
+      const best = Math.max(state.best, Math.floor(state.score));
+      state.best = best; localStorage.setItem('rr_best', best);
+      showOverlay(true);
+      overlay.querySelector('h1').textContent = "💥 Game Over";
+      overlay.querySelector('p').innerHTML = `Skor: <b>${Math.floor(state.score).toLocaleString()}</b> · Rekod: <b>${best.toLocaleString()}</b><br/>Tekan <b>Mula</b> untuk cuba lagi.`;
+    }else{
+      // slow down + small invuln by brief freeze
+      state.player.speed = WORLD_BASE*0.5;
     }
+  }
 
-    function roundedRect(ctx,x,y,w,h,r){ ctx.beginPath();
-      ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
-      ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fill();
-    }
-
-    function drawCar(c){
-      // bayang bawah
-      ctx.fillStyle = "rgba(0,0,0,.25)";
-      roundedRect(ctx, c.x+2, c.y+c.h*0.1+2, c.w, c.h*0.85, 10);
-      // badan
-      ctx.fillStyle = c.color;
-      roundedRect(ctx, c.x, c.y, c.w, c.h, 10);
-      // highlight
-      ctx.fillStyle = "rgba(255,255,255,.15)";
-      roundedRect(ctx, c.x+4, c.y+4, c.w-8, c.h*0.35, 8);
-      // tingkap
-      ctx.fillStyle = "rgba(255,255,255,.7)";
-      roundedRect(ctx, c.x + c.w*0.12, c.y + c.h*0.2, c.w*0.35, c.h*0.28, 6);
-      roundedRect(ctx, c.x + c.w*0.52, c.y + c.h*0.2, c.w*0.28, c.h*0.28, 6);
-      // tayar
-      ctx.fillStyle = "#0f0f0f";
-      const r = Math.max(6, Math.floor(c.h*0.18));
-      ctx.beginPath(); ctx.arc(c.x + c.w*0.2, c.y + c.h - 4, r, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(c.x + c.w*0.8, c.y + c.h - 4, r, 0, Math.PI*2); ctx.fill();
-      // lampu
-      ctx.fillStyle = "#fde68a";
-      if(c.dir>0){
-        ctx.fillRect(c.x + c.w - 6, c.y + c.h*0.25, 4, 8);
-        ctx.fillRect(c.x + c.w - 6, c.y + c.h*0.65, 4, 8);
-      }else{
-        ctx.fillRect(c.x + 2, c.y + c.h*0.25, 4, 8);
-        ctx.fillRect(c.x + 2, c.y + c.h*0.65, 4, 8);
-      }
-      // lampu belakang
-      ctx.fillStyle = "#f87171";
-      if(c.dir>0){
-        ctx.fillRect(c.x + 2, c.y + c.h*0.25, 3, 8);
-        ctx.fillRect(c.x + 2, c.y + c.h*0.65, 3, 8);
-      }else{
-        ctx.fillRect(c.x + c.w - 5, c.y + c.h*0.25, 3, 8);
-        ctx.fillRect(c.x + c.w - 5, c.y + c.h*0.65, 3, 8);
-      }
-    }
-
-    function drawCars(){
-      for(let lane=0; lane<LANES; lane++){
-        for(const c of state.cars[lane]) drawCar(c);
-      }
-    }
-
-    // Kambing lebih realistik
-    function goatRect(){
-      const h = laneHeight();
-      const gh = Math.floor(h * GOAT_HEIGHT_FACTOR);
-      const gw = Math.floor(h * GOAT_WIDTH_FACTOR);
-      const x = canvas.width/2 - gw/2;
-      const y = yForRow(Math.max(-1, Math.min(LANES, state.goatLane))) - gh/2;
-      return {x,y,w:gw,h:gh};
-    }
-    function drawGoat(){
-      const {x,y,w,h} = goatRect();
-      const t = performance.now();
-      const inv = t < state.invulnUntil;
-      ctx.save(); if(inv && Math.floor(t/120)%2===0) ctx.globalAlpha = 0.45;
-
-      // badan (oval)
-      ctx.fillStyle = "#d1d5db";
-      roundedRect(ctx, x, y+h*0.2, w, h*0.55, Math.min(12, h*0.2));
-      // dada/ kepala
-      roundedRect(ctx, x - w*0.28, y + h*0.25, w*0.42, h*0.32, 8);
-      // telinga
-      ctx.fillStyle = "#c7c9cf";
-      roundedRect(ctx, x - w*0.33, y + h*0.25, w*0.12, h*0.1, 4);
-      // tanduk
-      ctx.fillStyle = "#9ca3af";
-      roundedRect(ctx, x - w*0.34, y + h*0.12, w*0.09, h*0.12, 3);
-      roundedRect(ctx, x - w*0.20, y + h*0.08, w*0.08, h*0.11, 3);
-      // ekor
-      roundedRect(ctx, x + w*0.96, y + h*0.35, w*0.12, h*0.12, 3);
-      // kaki
-      ctx.fillStyle = "#6b7280";
-      const legW = w*0.14, legH = h*0.28;
-      roundedRect(ctx, x + w*0.12, y + h*0.68, legW, legH, 3);
-      roundedRect(ctx, x + w*0.62, y + h*0.68, legW, legH, 3);
-      // mata
-      ctx.fillStyle = "#111827";
-      ctx.beginPath(); ctx.arc(x - w*0.1, y + h*0.37, Math.max(2, Math.floor(w*0.04)), 0, Math.PI*2); ctx.fill();
-
-      ctx.restore();
-    }
-
-    // Scene + restoran
-    function drawScene(){
-      const h = laneHeight();
-      // latar
-      ctx.fillStyle = "#071a10"; ctx.fillRect(0,0, canvas.width, canvas.height);
-
-      // kawasan restoran (atas)
-      const restH = h*1.2;
-      const baseY = 0;
-      // langit oren nipis
-      ctx.fillStyle = "#210a05"; ctx.fillRect(0, baseY, canvas.width, restH*0.15);
-      // bangunan
-      const bX = canvas.width*0.12, bW = canvas.width*0.76, bH = restH*0.7, bY = baseY + restH*0.15;
-      ctx.fillStyle = "#6f2c10"; roundedRect(ctx, bX, bY, bW, bH, 10);
-      // bumbung
-      ctx.fillStyle = "#a23a1f";
-      ctx.beginPath();
-      ctx.moveTo(bX - 10, bY);
-      ctx.lineTo(bX + bW + 10, bY);
-      ctx.lineTo(bX + bW - 20, bY - 20);
-      ctx.lineTo(bX + 20, bY - 20);
-      ctx.closePath(); ctx.fill();
-      // papan tanda "Saudagar"
-      const signW = bW*0.6, signH = bH*0.28, signX = bX + (bW - signW)/2, signY = bY + bH*0.1;
-      ctx.fillStyle = "#f59e0b"; roundedRect(ctx, signX, signY, signW, signH, 8);
-      ctx.fillStyle = "#1f2937";
-      ctx.font = `bold ${Math.floor(signH*0.55)}px system-ui`;
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText("Saudagar", signX + signW/2, signY + signH/2);
-      // pintu & tingkap
-      ctx.fillStyle = "#1f2937";
-      roundedRect(ctx, bX + bW*0.08, bY + bH*0.45, bW*0.14, bH*0.45, 4);
-      roundedRect(ctx, bX + bW*0.78, bY + bH*0.45, bW*0.14, bH*0.45, 4);
-      ctx.fillStyle = "#cbd5e1";
-      roundedRect(ctx, bX + bW*0.3, bY + bH*0.5, bW*0.4, bH*0.32, 6);
-
-      // jalan
-      const roadY = restH;
-      const roadH = h * LANES;
-      // bahu jalan
-      ctx.fillStyle = "#092c1b"; ctx.fillRect(0, roadY-6, canvas.width, 6);
-      // permukaan jalan
-      ctx.fillStyle = "#101522"; roundedRect(ctx, 10, roadY, canvas.width-20, roadH, 14);
-      // garisan putus setiap lane
-      for(let i=0;i<LANES;i++){
-        const y = yForRow(i);
-        ctx.strokeStyle = "#9ca3af55"; ctx.lineWidth = 2; ctx.setLineDash([12,14]);
-        ctx.beginPath(); ctx.moveTo(22, y); ctx.lineTo(canvas.width-22, y); ctx.stroke(); ctx.setLineDash([]);
-      }
-
-      // rumput bawah
-      ctx.fillStyle = "#0c3f27"; ctx.fillRect(0, canvas.height - h, canvas.width, h);
-      ctx.fillStyle = "#10b98122"; ctx.fillRect(0, canvas.height - h, canvas.width, 8);
-    }
-
-    function aabb(a,b){
-      return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-    }
-
-    function showOverlay(title, subtitle){
-      document.getElementById('title').textContent = title;
-      document.getElementById('subtitle').textContent = subtitle;
-      overlay.style.display = "grid";
-    }
-    function hideOverlay(){ overlay.style.display = "none"; }
-    function showToast(msg, ms=1200){
-      toast.textContent = msg; toast.style.display = "block";
-      setTimeout(()=> toast.style.display = "none", ms);
-    }
-
-    // Input: satu tap/klik/space/up = naik 1 lane
-    function tryAdvance(){
-      if(!state.running || state.gameOver || state.win) return;
-      state.goatLane++;
-      if(state.goatLane >= LANES){
-        state.win = true; state.running = false;
-        showOverlay("🎉 Menang!", "Kambing selamat sampai ke Saudagar. Tekan Mula untuk main lagi.");
-        return;
-      }
-    }
-    canvas.addEventListener('pointerdown', e=>{ e.preventDefault(); tryAdvance(); });
-    addEventListener('keydown', e=>{
-      if(e.code==="Space" || e.code==="ArrowUp"){ e.preventDefault(); tryAdvance(); }
-      if((e.code==="KeyR"||e.code==="Enter") && (state.gameOver||state.win)) startGame();
-    }, {passive:false});
-
-    helpBtn.addEventListener('click', ()=> showOverlay("Cara Main",
-      "Tap / klik / tekan Space untuk naik satu lorong. Elak kereta. Ada 3 nyawa. Sampai bangunan 'Saudagar' di atas untuk menang."));
-    howToBtn.addEventListener('click', ()=> helpBtn.click());
-    startBtn.addEventListener('click', startGame);
-
-    function startGame(){
-      hideOverlay();
-      state.running = true; state.gameOver = false; state.win = false;
-      state.lives = LIVES_MAX; state.goatLane = -1; state.invulnUntil = 0;
-      resetSpawns(); updateHearts(); state.lastTime = performance.now();
-      requestAnimationFrame(loop);
-      showToast("Tap / Space untuk naik satu lorong");
-    }
-
-    function loop(now){
-      if(!state.running) return;
-      const dt = Math.min(0.05, (now - state.lastTime)/1000);
-      state.lastTime = now;
-
-      updateCars(dt);
-
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      drawScene(); drawCars(); drawGoat();
-
-      const inv = now < state.invulnUntil;
-      if(state.goatLane >= 0 && state.goatLane < LANES && !inv){
-        const goat = goatRect();
-        for(const car of state.cars[state.goatLane]){
-          if(aabb(goat, car)){
-            state.lives--; updateHearts();
-            // flash
-            ctx.save(); ctx.fillStyle = "rgba(239,68,68,.35)"; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.restore();
-            if(state.lives <= 0){
-              state.gameOver = true; state.running = false;
-              showOverlay("💥 Game Over", "Kambing dilanggar. Tekan Mula untuk cuba lagi.");
-              return;
-            }else{
-              state.goatLane = -1; state.invulnUntil = now + INVULN_TIME;
-              showToast("Aduh! Nyawa tinggal: " + state.lives, 900);
-            }
-            break;
-          }
-        }
-      }
-      requestAnimationFrame(loop);
-    }
-
-    resetGame();
-  })();
-  </script>
+  // Kickoff
+  reset();
+})();
+</script>
 </body>
 </html>
