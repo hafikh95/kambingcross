@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Kambing Lintas Jalan — Saudagar Kambing Bakar</title>
+  <style>
+    :root{
+      --bg:#0f172a; --text:#e5e7eb; --muted:#94a3b8;
+      --road:#111827; --lane:#0b1220; --line:#374151;
+      --grass:#0a2f1f; --rest:#87360f; --accent:#22c55e; --danger:#ef4444;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background: radial-gradient(1400px 700px at 10% -10%,#1e293b,transparent),
+                         radial-gradient(900px 600px at 120% 10%,#0b1220,transparent), var(--bg);
+      color:var(--text); font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      overflow:hidden;
+    }
+    header{
+      position:fixed; inset:0 0 auto 0; height:56px; display:flex; align-items:center; gap:10px;
+      padding:10px 14px; background:linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,0));
+      z-index:10; pointer-events:none;
+    }
+    .badge{pointer-events:auto; padding:6px 10px; border-radius:999px; font-size:12px;
+      border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06)}
+    .hearts{display:flex; gap:6px; align-items:center}
+    .btn{
+      pointer-events:auto; margin-left:auto; padding:8px 12px; border-radius:10px; font-weight:700;
+      background:linear-gradient(180deg,#16a34a,#15803d); color:#fff; border:1px solid rgba(255,255,255,.18);
+      box-shadow:0 6px 16px rgba(20,184,166,.25); cursor:pointer;
+    }
+    .btn:disabled{opacity:.6; cursor:not-allowed}
+    main{display:grid; place-items:center; height:100dvh; padding:12px}
+    canvas{max-width:100%; height:auto; border-radius:18px; box-shadow:0 14px 36px rgba(0,0,0,.35)}
+    .overlay{
+      position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.5); z-index:20;
+    }
+    .card{
+      width:min(560px, calc(100vw - 32px)); border-radius:16px; padding:16px; backdrop-filter: blur(8px);
+      border:1px solid rgba(255,255,255,.12);
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+      text-align:center;
+    }
+    h1{margin:6px 0 2px; font-size:20px}
+    p{margin:8px 0; color:var(--muted)}
+    .row{display:flex; gap:8px; justify-content:center; margin-top:10px}
+    .cta{padding:12px 16px; border-radius:12px; font-weight:800; border:1px solid rgba(255,255,255,.18); cursor:pointer}
+    .primary{background:linear-gradient(180deg,#22c55e,#16a34a); color:#fff}
+    .ghost{background:rgba(255,255,255,.08); color:#e5e7eb}
+    .toast{
+      position:fixed; left:50%; transform:translateX(-50%); bottom:14px; z-index:30;
+      padding:8px 12px; background:rgba(0,0,0,.6); border:1px solid rgba(255,255,255,.14);
+      color:#d1fae5; border-radius:10px; font-size:13px; display:none;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="badge">🎮 Kambing Lintas Jalan (10 lane)</span>
+    <div class="hearts" id="hearts"></div>
+    <button class="btn" id="helpBtn">Cara Main</button>
+  </header>
+
+  <main>
+    <canvas id="game" width="480" height="800" aria-label="Permainan Kambing Lintas Jalan"></canvas>
+  </main>
+
+  <div class="overlay" id="overlay">
+    <div class="card">
+      <h1 id="title">Saudagar Kambing Bakar</h1>
+      <p id="subtitle">Tekan untuk naik satu lorong. Elak kereta. Sampai restoran di atas untuk menang.</p>
+      <div class="row">
+        <button class="cta ghost" id="howTo">🎯 Cara Main</button>
+        <button class="cta primary" id="startBtn">Mula</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+  ;(()=>{
+    // ===================== CONFIG =====================
+    const LANES = 10;           // bilangan lorong
+    const LIVES_MAX = 3;        // nyawa
+    const BASE_SPEED = 90;      // px/s baseline kereta
+    const SPEED_VARIANCE = 50;  // variasi kelajuan
+    const SPAWN_MIN = 0.9;      // min jarak masa spawn (s)
+    const SPAWN_MAX = 2.0;      // max jarak masa spawn (s)
+    const GOAT_WIDTH_FACTOR = 0.55;  // lebar kambing relatif ketinggian lorong
+    const GOAT_HEIGHT_FACTOR = 0.7;  // tinggi kambing relatif ketinggian lorong
+    const INVULN_TIME = 900;    // ms selepas dilanggar
+    // ==================================================
+
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const overlay = document.getElementById('overlay');
+    const startBtn = document.getElementById('startBtn');
+    const howToBtn = document.getElementById('howTo');
+    const helpBtn = document.getElementById('helpBtn');
+    const heartsEl = document.getElementById('hearts');
+    const toast = document.getElementById('toast');
+
+    // Responsive: scale canvas mengikut tinggi skrin (10 lane + margin atas/bawah)
+    function fitCanvas(){
+      const pad = 24;
+      const w = Math.min(520, window.innerWidth - pad*2);
+      const h = Math.min(900, window.innerHeight - pad*2);
+      // Kekalkan nisbah ± 3:5 untuk rasa menegak
+      const targetH = Math.max(h, w * 1.5);
+      canvas.width = Math.floor(w);
+      canvas.height = Math.floor(targetH);
+    }
+    fitCanvas();
+    addEventListener('resize', fitCanvas);
+
+    // Grid & geometri
+    const state = {
+      running: false,
+      gameOver: false,
+      win: false,
+      lives: LIVES_MAX,
+      goatLane: -1,          // -1 = zon mula (bawah rumput)
+      invulnUntil: 0,        // timestamp invulnerable
+      cars: Array.from({length: LANES}, ()=>[]), // kereta per lane
+      spawnTimers: new Array(LANES).fill(0),
+      nextSpawnIn: [],
+      lastTime: 0,
+      scoreBest: 0,
+    };
+
+    function laneHeight(){ return Math.floor(canvas.height / (LANES + 2)); } // +2 untuk margin atas/bawah
+    const colors = ["#0ea5e9","#22c55e","#f59e0b","#a78bfa","#ef4444","#14b8a6","#eab308","#fb7185","#34d399","#60a5fa"];
+
+    function yForRow(row){
+      // row: -1 (rumput bawah), 0..LANES-1 (jalan), LANES (restoran)
+      const h = laneHeight();
+      const bottomMargin = h; // rumput bawah
+      return canvas.height - bottomMargin - (row + 0.5) * h;
+    }
+
+    function resetSpawns(){
+      state.nextSpawnIn = Array.from({length: LANES}, (_,i)=>rand(SPAWN_MIN, SPAWN_MAX));
+      state.spawnTimers = new Array(LANES).fill(0);
+      state.cars = Array.from({length: LANES}, ()=>[]);
+    }
+
+    function resetGame(){
+      state.running = false;
+      state.gameOver = false;
+      state.win = false;
+      state.lives = LIVES_MAX;
+      state.goatLane = -1;
+      state.invulnUntil = 0;
+      resetSpawns();
+      updateHearts();
+      showOverlay("Saudagar Kambing Bakar","Tekan / tap untuk naik satu lorong. Elak kereta. Sampai restoran di atas untuk menang.");
+    }
+
+    function updateHearts(){
+      heartsEl.innerHTML = "";
+      for(let i=0;i<LIVES_MAX;i++){
+        const span = document.createElement('span');
+        span.textContent = i < state.lives ? "❤️" : "🖤";
+        span.style.filter = i < state.lives ? "none" : "grayscale(1)";
+        heartsEl.appendChild(span);
+      }
+    }
+
+    // Util
+    function rand(a,b){ return a + Math.random()*(b-a); }
+    function chance(p){ return Math.random() < p; }
+
+    // Kereta
+    function spawnCar(lane){
+      const h = laneHeight();
+      const dir = (lane % 2 === 0) ? 1 : -1; // kiri→kanan untuk lane genap
+      const speed = BASE_SPEED + (LANES - lane) * 6 + (Math.random() * SPEED_VARIANCE - SPEED_VARIANCE/2);
+      const carH = Math.floor(h * 0.7);
+      const carW = Math.floor(h * rand(1.1, 1.8));
+      const y = yForRow(lane) - carH/2;
+
+      let x = dir === 1 ? -carW - rand(10,80) : canvas.width + rand(10,80);
+      state.cars[lane].push({x, y, w: carW, h: carH, speed: speed*dir, color: colors[lane % colors.length]});
+    }
+
+    function updateCars(dt){
+      for(let lane=0; lane<LANES; lane++){
+        state.spawnTimers[lane] += dt;
+        if(state.spawnTimers[lane] >= state.nextSpawnIn[lane]){
+          spawnCar(lane);
+          state.spawnTimers[lane] = 0;
+          state.nextSpawnIn[lane] = rand(SPAWN_MIN, SPAWN_MAX);
+        }
+        const arr = state.cars[lane];
+        for(let i=arr.length-1; i>=0; i--){
+          arr[i].x += arr[i].speed * dt;
+          if(arr[i].x < -arr[i].w-40 || arr[i].x > canvas.width+40) arr.splice(i,1);
+        }
+      }
+    }
+
+    // Kambing
+    function goatRect(){
+      const h = laneHeight();
+      const gh = Math.floor(h * GOAT_HEIGHT_FACTOR);
+      const gw = Math.floor(h * GOAT_WIDTH_FACTOR);
+      const x = canvas.width/2 - gw/2;
+      const y = yForRow(Math.max(-1, Math.min(LANES, state.goatLane))) - gh/2;
+      return {x,y,w:gw,h:gh};
+    }
+
+    function drawGoat(){
+      const {x,y,w,h} = goatRect();
+      const t = performance.now();
+      const invuln = t < state.invulnUntil;
+      // badan
+      ctx.save();
+      if(invuln && Math.floor(t/120)%2===0) ctx.globalAlpha = 0.4;
+      ctx.fillStyle = "#d1d5db"; // bulu
+      ctx.fillRect(x, y + h*0.15, w, h*0.7);
+      // kepala
+      ctx.fillStyle = "#e5e7eb";
+      ctx.fillRect(x - w*0.25, y + h*0.25, w*0.4, h*0.35);
+      // tanduk
+      ctx.fillStyle = "#9ca3af";
+      ctx.fillRect(x - w*0.28, y + h*0.15, w*0.12, h*0.1);
+      ctx.fillRect(x - w*0.12, y + h*0.1, w*0.1,  h*0.12);
+      // kaki
+      ctx.fillStyle = "#6b7280";
+      const legW = w*0.15, legH = h*0.25;
+      ctx.fillRect(x + w*0.1, y + h*0.8, legW, legH);
+      ctx.fillRect(x + w*0.6, y + h*0.8, legW, legH);
+      ctx.restore();
+    }
+
+    // UI & papan tanda
+    function drawScene(){
+      const h = laneHeight();
+      // rumput bawah
+      ctx.fillStyle = "linear-gradient" in ctx ? "#0f3a23" : "#0f3a23";
+      ctx.fillStyle = "rgba(0,0,0,0)"; // reset
+      // latar
+      ctx.fillStyle = "#062014";
+      ctx.fillRect(0,0, canvas.width, canvas.height);
+
+      // restoran (atas)
+      const restH = h;
+      ctx.fillStyle = "#6b1f04";
+      ctx.fillRect(0, 0, canvas.width, restH);
+      // papan restoran
+      ctx.fillStyle = "#f59e0b";
+      ctx.fillRect(canvas.width*0.2, restH*0.15, canvas.width*0.6, restH*0.25);
+      ctx.fillStyle = "#1f2937";
+      ctx.font = `bold ${Math.floor(h*0.28)}px system-ui`;
+      ctx.textAlign = "center";
+      ctx.fillText("Saudagar", canvas.width*0.5, restH*0.38);
+      ctx.fillStyle = "#fde68a";
+      ctx.font = `bold ${Math.floor(h*0.18)}px system-ui`;
+      ctx.fillText("Kambing Bakar", canvas.width*0.5, restH*0.65);
+
+      // jalan (10 lane)
+      const roadY = restH;
+      const roadH = h * LANES;
+      ctx.fillStyle = varColor('--road');
+      roundedRect(ctx, 8, roadY, canvas.width-16, roadH, 14, "#111827");
+
+      // garisan lorong
+      for(let i=0;i<LANES;i++){
+        const y = yForRow(i);
+        // garis putus
+        ctx.strokeStyle = "#9ca3af55";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10,12]);
+        ctx.beginPath();
+        ctx.moveTo(16, y);
+        ctx.lineTo(canvas.width-16, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // rumput bawah
+      ctx.fillStyle = "#08351f";
+      ctx.fillRect(0, canvas.height - h, canvas.width, h);
+      ctx.fillStyle = "#10b98122";
+      ctx.fillRect(0, canvas.height - h, canvas.width, 8);
+    }
+
+    function varColor(name){
+      return getComputedStyle(document.documentElement).getPropertyValue(name) || "#111827";
+    }
+    function roundedRect(ctx,x,y,w,h,r, color){
+      ctx.fillStyle = color; ctx.beginPath();
+      ctx.moveTo(x+r, y);
+      ctx.arcTo(x+w, y, x+w, y+h, r);
+      ctx.arcTo(x+w, y+h, x, y+h, r);
+      ctx.arcTo(x, y+h, x, y, r);
+      ctx.arcTo(x, y, x+w, y, r);
+      ctx.closePath(); ctx.fill();
+    }
+
+    function drawCars(){
+      for(let lane=0; lane<LANES; lane++){
+        const arr = state.cars[lane];
+        for(const c of arr){
+          // badan
+          ctx.fillStyle = c.color;
+          roundedRect(ctx, c.x, c.y, c.w, c.h, 8, c.color);
+          // tingkap
+          ctx.fillStyle = "rgba(255,255,255,.7)";
+          ctx.fillRect(c.x + c.w*0.15, c.y + c.h*0.2, c.w*0.35, c.h*0.25);
+          ctx.fillRect(c.x + c.w*0.55, c.y + c.h*0.2, c.w*0.25, c.h*0.25);
+          // lampu depan
+          ctx.fillStyle = "#fde68a";
+          if(c.speed>0){
+            ctx.fillRect(c.x + c.w-6, c.y + c.h*0.25, 4, 8);
+            ctx.fillRect(c.x + c.w-6, c.y + c.h*0.65, 4, 8);
+          }else{
+            ctx.fillRect(c.x + 2, c.y + c.h*0.25, 4, 8);
+            ctx.fillRect(c.x + 2, c.y + c.h*0.65, 4, 8);
+          }
+        }
+      }
+    }
+
+    function aabb(a,b){
+      return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    }
+
+    function showOverlay(title, subtitle){
+      document.getElementById('title').textContent = title;
+      document.getElementById('subtitle').textContent = subtitle;
+      overlay.style.display = "grid";
+    }
+    function hideOverlay(){ overlay.style.display = "none"; }
+
+    function showToast(msg, ms=1200){
+      toast.textContent = msg;
+      toast.style.display = "block";
+      setTimeout(()=> toast.style.display = "none", ms);
+    }
+
+    // Input: satu tap/klik/space/up = naik 1 lane
+    function tryAdvance(){
+      if(!state.running || state.gameOver || state.win) return;
+      state.goatLane++;
+      if(state.goatLane >= LANES){
+        state.win = true; state.running = false;
+        showOverlay("🎉 Menang!", "Kambing selamat sampai ke Restoran Saudagar. Tekan Mula untuk main lagi.");
+        return;
+      }
+    }
+    canvas.addEventListener('pointerdown', e=>{ e.preventDefault(); tryAdvance(); });
+    addEventListener('keydown', e=>{
+      if(e.code==="Space" || e.code==="ArrowUp"){ e.preventDefault(); tryAdvance(); }
+      if((e.code==="KeyR"||e.code==="Enter") && (state.gameOver||state.win)) startGame();
+    }, {passive:false});
+
+    helpBtn.addEventListener('click', ()=> showOverlay("Cara Main",
+      "Tap / klik / tekan Space untuk naik satu lorong. Elak kereta. Ada 3 nyawa. Sampai restoran di atas untuk menang."));
+    howToBtn.addEventListener('click', ()=> helpBtn.click());
+    startBtn.addEventListener('click', startGame);
+
+    function startGame(){
+      hideOverlay();
+      state.running = true;
+      state.gameOver = false;
+      state.win = false;
+      state.lives = LIVES_MAX;
+      state.goatLane = -1;
+      state.invulnUntil = 0;
+      resetSpawns();
+      updateHearts();
+      state.lastTime = performance.now();
+      requestAnimationFrame(loop);
+      showToast("Tap / Space untuk naik satu lorong");
+    }
+
+    // Main loop
+    function loop(now){
+      if(!state.running) return;
+      const dt = Math.min(0.05, (now - state.lastTime)/1000); // cap dt
+      state.lastTime = now;
+
+      // Update
+      updateCars(dt);
+
+      // Draw
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      drawScene();
+      drawCars();
+      drawGoat();
+
+      // Collision (hanya bila kambing dalam lane 0..9 & bukan invuln)
+      const invuln = now < state.invulnUntil;
+      if(state.goatLane >= 0 && state.goatLane < LANES && !invuln){
+        const goat = goatRect();
+        for(const car of state.cars[state.goatLane]){
+          if(aabb(goat, car)){
+            // kena langgar
+            state.lives--;
+            updateHearts();
+            flashScreen();
+            if(state.lives <= 0){
+              state.gameOver = true; state.running = false;
+              showOverlay("💥 Game Over", "Kambing dilanggar. Tekan Mula untuk cuba lagi.");
+              return;
+            }else{
+              // reset ke bawah & invuln sekejap
+              state.goatLane = -1;
+              state.invulnUntil = now + INVULN_TIME;
+              showToast("Aduh! Nyawa tinggal: " + state.lives, 900);
+            }
+            break;
+          }
+        }
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    function flashScreen(){
+      // efek flash merah nipis
+      ctx.save();
+      ctx.fillStyle = "rgba(239,68,68,.35)";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.restore();
+    }
+
+    // Init
+    resetGame();
+
+  })();
+  </script>
+</body>
+</html>
